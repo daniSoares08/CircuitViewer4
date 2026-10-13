@@ -1,0 +1,102 @@
+"""Capitulo 9 - Senoides, fasores, impedancia e admitancia."""
+
+SUBJECTS = ["Impedancia AC", "Circuitos AC Cap9"]
+
+CIRCUITS = {
+    "p9_35": [
+        ("vsrc_v", 42, 78, 190, "50V"),
+        ("res_h", 42, 78, 112, "10"),
+        ("cap_h", 112, 78, 202, "5mF"),
+        ("wire", 202, 78, 260, 78),
+        ("ind_v", 260, 78, 190, "20mH"),
+        ("wire", 42, 190, 260, 190),
+        ("arr_h", 58, 62, 104, "i", True),
+        ("gnd", 150, 190),
+    ],
+    "p9_37": [
+        ("term", 45, 90, "a"), ("term", 45, 185, "b"),
+        ("wire", 45, 90, 270, 90), ("wire", 45, 185, 270, 185),
+        ("imp_v", 95, 90, 185, "4"),
+        ("imp_v", 180, 90, 185, "j8"),
+        ("imp_v", 265, 90, 185, "-j10"),
+        ("lbl", "Y", 28, 132),
+    ],
+    "p9_43": [
+        ("vsrc_v", 42, 78, 190, "60V"),
+        ("wire", 42, 190, 278, 190),
+        ("wire", 42, 78, 58, 78),
+        ("res_h", 58, 78, 132, "50"),
+        ("imp_v", 132, 78, 190, "j80"),
+        ("res_h", 132, 78, 230, "100"),
+        ("wire", 230, 78, 278, 78),
+        ("imp_v", 278, 78, 190, "-j40"),
+        ("arr_h", 62, 60, 116, "Io", True),
+        ("gnd", 170, 190),
+    ],
+    "p9_44": [
+        ("vsrc_v", 38, 75, 195, "6V"),
+        ("res_h", 38, 75, 102, "5"),
+        ("wire", 102, 75, 142, 75),
+        ("res_v", 118, 75, 195, "4"),
+        ("ind_v", 142, 75, 195, "10mH"),
+        ("cap_h", 142, 75, 232, "5mF"),
+        ("wire", 232, 75, 282, 75),
+        ("res_v", 282, 75, 195, "3"),
+        ("wire", 38, 195, 282, 195),
+        ("arr_h", 52, 57, 94, "i", True),
+        ("gnd", 210, 195),
+    ],
+    "p9_56": [
+        ("term", 35, 82, "a"), ("term", 35, 190, "b"),
+        ("res_h", 35, 82, 105, "12"),
+        ("cap_h", 105, 82, 190, "50uF"),
+        ("wire", 190, 82, 278, 82),
+        ("wire", 35, 190, 278, 190),
+        ("ind_v", 210, 82, 190, "60mH"),
+        ("res_v", 270, 82, 190, "40"),
+        ("lbl", "Zent", 35, 128),
+    ],
+}
+
+EXERCISES = [
+    {
+        "id": "p9_35", "title": "Problema 9.35",
+        "subject": "Circuitos AC Cap9", "priority": 10,
+        "source": "Livro, Cap.9, Problema 9.35",
+        "statement": ["Determine i(t) no circuito para", "vs(t) = 50 cos(200t) V."],
+        "engine": {"omega": 200.0, "target_op_index": 1},
+        "expected": {"i_mag": 4.789, "i_deg": -16.7},
+    },
+    {
+        "id": "p9_37", "title": "Problema 9.37",
+        "subject": "Impedancia AC", "priority": 11,
+        "source": "Livro, Cap.9, Problema 9.37",
+        "statement": ["Determine a admitancia Y do circuito mostrado."],
+        "engine": {"omega": 1.0, "port_labels": ["a", "b"]},
+        "expected": {"yeq_re": 0.250, "yeq_im": -0.025},
+    },
+    {
+        "id": "p9_43", "title": "Problema 9.43",
+        "subject": "Circuitos AC Cap9", "priority": 12,
+        "source": "Livro, Cap.9, Problema 9.43",
+        "statement": ["Determine o fasor Io no circuito mostrado."],
+        "engine": {"omega": 1.0, "target_op_index": 3},
+        "expected": {"io_mag": 0.4997, "io_deg": -28.85},
+    },
+    {
+        "id": "p9_44", "title": "Problema 9.44",
+        "subject": "Circuitos AC Cap9", "priority": 13,
+        "source": "Livro, Cap.9, Problema 9.44",
+        "statement": ["Calcule i(t) no circuito para", "vs(t) = 6 cos(200t) V."],
+        "engine": {"omega": 200.0, "target_op_index": 1},
+        "expected": {"i_mag": 0.96010, "i_deg": -7.9549},
+    },
+    {
+        "id": "p9_56", "title": "Problema 9.56",
+        "subject": "Impedancia AC", "priority": 14,
+        "source": "Livro, Cap.9, Problema 9.56",
+        "statement": ["Com omega = 377 rad/s, determine a", "impedancia de entrada do circuito."],
+        "engine": {"omega": 377.0, "port_labels": ["a", "b"]},
+        "expected": {"zeq_mag": 41.9544, "zeq_deg": -58.8660},
+    },
+]

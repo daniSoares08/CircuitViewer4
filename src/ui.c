@@ -1,0 +1,621 @@
+/* CircuitViewer3 - github.com/daniSoares08
+ * Open source (MIT License): free to use, copy, modify and redistribute. */
+
+#include "cv3.h"
+
+void check_on_exit(void) {
+    kb_Scan();
+    if (kb_On) {
+        gfx_End();
+        exit(0);
+    }
+}
+
+uint8_t pressed_once(kb_lkey_t key) {
+    static uint8_t prev[8];
+    uint8_t group = (uint8_t)(key >> 8);
+    uint8_t mask = (uint8_t)(key & 0xFF);
+    uint8_t down;
+    uint8_t edge;
+
+    if (group >= 8) return 0;
+
+    down = kb_IsDown(key) ? 1 : 0;
+    edge = (down && !(prev[group] & mask)) ? 1 : 0;
+
+    if (down) prev[group] |= mask;
+    else prev[group] &= (uint8_t)~mask;
+
+    return edge;
+}
+
+void wait_key_release(void) {
+    do {
+        check_on_exit();
+        kb_Scan();
+    } while (kb_Data[1] | kb_Data[2] | kb_Data[3] |
+             kb_Data[4] | kb_Data[5] | kb_Data[6] | kb_Data[7]);
+    delay(20);
+}
+
+void screen_init(void) {
+    gfx_Begin();
+    gfx_SetDrawBuffer();
+
+    gfx_palette[COL_WHITE] = gfx_RGBTo1555(255, 255, 255);
+    gfx_palette[COL_BLACK] = gfx_RGBTo1555(0, 0, 0);
+    gfx_palette[COL_GRAY] = gfx_RGBTo1555(145, 145, 145);
+    gfx_palette[COL_LIGHT] = gfx_RGBTo1555(228, 236, 244);
+    gfx_palette[COL_BLUE] = gfx_RGBTo1555(35, 76, 150);
+    gfx_palette[COL_RED] = gfx_RGBTo1555(190, 36, 36);
+    gfx_palette[COL_GREEN] = gfx_RGBTo1555(34, 128, 82);
+
+    gfx_FillScreen(COL_WHITE);
+    gfx_SwapDraw();
+    gfx_FillScreen(COL_WHITE);
+    gfx_SwapDraw();
+    gfx_SetDrawBuffer();
+    gfx_FillScreen(COL_WHITE);
+
+    gfx_SetTextFGColor(COL_BLACK);
+    gfx_SetTextBGColor(COL_WHITE);
+    gfx_SetTextTransparentColor(COL_WHITE);
+    gfx_SetTextScale(1, 1);
+}
+
+void print_center(const char *text, int y) {
+    unsigned int w = gfx_GetStringWidth(text);
+    int x = (SCREEN_W - (int)w) / 2;
+    if (x < 0) x = 0;
+    gfx_PrintStringXY(text, x, y);
+}
+
+void prn(const char *text, int x, int y) {
+    gfx_PrintStringXY(text, x, y);
+}
+
+void draw_header(const char *title, uint8_t page, uint8_t total) {
+    char pg[] = "Pg 1/1";
+
+    gfx_FillScreen(COL_WHITE);
+    gfx_SetColor(COL_BLACK);
+    gfx_SetTextFGColor(COL_BLACK);
+    prn(title, 2, 2);
+
+    pg[3] = (char)('1' + page);
+    pg[5] = (char)('0' + total);
+    prn(pg, 264, 2);
+
+    gfx_HorizLine(0, 14, SCREEN_W);
+}
+
+static void append_u16(char *buf, uint8_t *pos, uint16_t value) {
+    char tmp[5];
+    uint8_t n = 0;
+    do {
+        tmp[n++] = (char)('0' + (value % 10));
+        value /= 10;
+    } while (value && n < sizeof(tmp));
+    while (n) {
+        buf[(*pos)++] = tmp[--n];
+    }
+}
+
+void draw_ex_header(const char *subject, const char *ex_title,
+                    uint16_t ex, uint16_t ex_total,
+                    uint8_t page, uint8_t page_total) {
+    char meta[26];
+    char short_subject[40];
+    uint8_t pos = 0;
+    uint8_t keep = 0;
+    int meta_x, available;
+
+    gfx_FillScreen(COL_WHITE);
+    gfx_SetColor(COL_BLACK);
+    gfx_SetTextFGColor(COL_BLACK);
+    meta[pos++] = 'E';
+    meta[pos++] = 'x';
+    meta[pos++] = ' ';
+    append_u16(meta, &pos, (uint16_t)(ex + 1));
+    meta[pos++] = '/';
+    append_u16(meta, &pos, ex_total);
+    meta[pos++] = ' ';
+    meta[pos++] = 'P';
+    meta[pos++] = 'g';
+    meta[pos++] = ' ';
+    append_u16(meta, &pos, (uint16_t)(page + 1));
+    meta[pos++] = '/';
+    append_u16(meta, &pos, page_total);
+    meta[pos] = '\0';
+    meta_x = SCREEN_W - (int)gfx_GetStringWidth(meta) - 2;
+    if (meta_x < 150) meta_x = 150;
+    available = meta_x - 8;
+    if ((int)gfx_GetStringWidth(subject) <= available) {
+        prn(subject, 2, 2);
+    } else {
+        /* Keep the content name and page counter on the same row without
+           ever drawing one over the other. The full exercise title remains
+           visible on the second header row. */
+        while (subject[keep] && keep + 4 < sizeof(short_subject) &&
+               (int)(keep + 4) * 8 <= available) {
+            short_subject[keep] = subject[keep];
+            keep++;
+        }
+        short_subject[keep++] = '.';
+        short_subject[keep++] = '.';
+        short_subject[keep++] = '.';
+        short_subject[keep] = '\0';
+        prn(short_subject, 2, 2);
+    }
+    prn(meta, meta_x, 2);
+    gfx_HorizLine(0, 14, SCREEN_W);
+
+    gfx_SetTextFGColor(COL_GRAY);
+    prn(ex_title, 8, 18);
+    gfx_SetTextFGColor(COL_BLACK);
+}
+
+void draw_footer_menu(void) {
+    gfx_SetColor(COL_GRAY);
+    gfx_HorizLine(0, 224, SCREEN_W);
+    gfx_SetTextFGColor(COL_BLACK);
+    prn("UP/DOWN escolhe ENTER abre ON sair", 2, 229);
+}
+
+void draw_footer_edit(void) {
+    gfx_SetColor(COL_GRAY);
+    gfx_HorizLine(0, 224, SCREEN_W);
+    gfx_SetTextFGColor(COL_BLACK);
+    prn("UP/DOWN escolhe ENTER edita CLEAR volta", 2, 229);
+}
+
+void draw_footer_ex(void) {
+    gfx_SetColor(COL_GRAY);
+    gfx_HorizLine(0, 224, SCREEN_W);
+    gfx_SetTextFGColor(COL_BLACK);
+    prn("MODE edita  UP/DOWN ex  </> pg CLEAR", 2, 229);
+}
+
+void draw_search_footer(const uint8_t counts[5], bool show_labels, bool show_counts) {
+    static const char *const labels[5] = { "res", "FT", "FC", "cap", "ind" };
+    uint8_t i;
+
+    gfx_SetColor(COL_GRAY);
+    gfx_HorizLine(0, 224, SCREEN_W);
+
+    /* footer stays empty unless a peek key is held: alpha -> labels,
+       math -> the live component counts */
+    if (!show_labels && !show_counts) return;
+
+    gfx_SetTextFGColor(COL_BLACK);
+    for (i = 0; i < 5; i++) {
+        int center = 32 + i * 64;   /* slot centers 32,96,160,224,288 */
+        char buf[4];
+        const char *txt;
+        int w, x;
+
+        if (show_labels) {
+            txt = labels[i];
+        } else {
+            uint8_t n = counts[i];
+            uint8_t p = 0;
+            if (n >= 10) buf[p++] = (char)('0' + n / 10);
+            buf[p++] = (char)('0' + n % 10);
+            buf[p] = '\0';
+            txt = buf;
+        }
+        w = (int)gfx_GetStringWidth(txt);
+        x = center - w / 2;
+        if (x < 0) x = 0;
+        prn(txt, x, 229);
+    }
+}
+
+void draw_title(const char *title, const char *subtitle) {
+    if (title) print_center(title, 30);
+    if (subtitle) {
+        gfx_SetTextFGColor(COL_GRAY);
+        print_center(subtitle, 44);
+        gfx_SetTextFGColor(COL_BLACK);
+    }
+}
+
+void result_box(const char *text, int y) {
+    gfx_SetColor(COL_BLUE);
+    gfx_Rectangle(24, y, 272, 30);
+    gfx_Rectangle(25, y + 1, 270, 28);
+    gfx_SetTextFGColor(COL_BLUE);
+    print_center(text, y + 10);
+    gfx_SetTextFGColor(COL_BLACK);
+}
+
+void step_box(int y, const char *l1, const char *l2) {
+    gfx_SetColor(COL_LIGHT);
+    gfx_FillRectangle(10, y, 300, 36);
+    gfx_SetColor(COL_BLACK);
+    gfx_Rectangle(10, y, 300, 36);
+    gfx_SetTextFGColor(COL_BLACK);
+    prn(l1, 18, y + 7);
+    prn(l2, 18, y + 21);
+}
+
+void draw_page_template(const PageTemplate *page) {
+    uint8_t i;
+
+    draw_title(page->title, page->subtitle);
+    if (page->body) page->body();
+
+    for (i = 0; i < page->line_count; i++) {
+        gfx_SetTextFGColor(page->lines[i].color);
+        prn(page->lines[i].text, page->lines[i].x, page->lines[i].y);
+    }
+
+    if (page->result) {
+        result_box(page->result, page->result_y);
+    }
+    gfx_SetTextFGColor(COL_BLACK);
+}
+
+void draw_node(int x, int y) {
+    gfx_SetColor(COL_BLACK);
+    gfx_FillCircle(x, y, 2);
+}
+
+void draw_wire(int x1, int y1, int x2, int y2) {
+    gfx_SetColor(COL_BLACK);
+    gfx_Line(x1, y1, x2, y2);
+}
+
+void draw_terminal(int x, int y, const char *label) {
+    gfx_SetColor(COL_BLACK);
+    gfx_Circle(x, y, 4);
+    gfx_SetTextFGColor(COL_BLACK);
+    prn(label, x + 8, y - 18);
+}
+
+static void draw_text_in_rect(const char *text, int x, int y, int w, int h) {
+    unsigned int tw = gfx_GetStringWidth(text);
+    int tx = x + (w - (int)tw) / 2;
+    int ty = y + (h - 8) / 2;
+    if (tx < x + 1) tx = x + 1;
+    gfx_SetTextFGColor(COL_BLACK);
+    prn(text, tx, ty);
+}
+
+void draw_res_h(int x1, int y, int x2, const char *label) {
+    int body_w = 32;
+    int body_h = 16;
+    int cx = (x1 + x2) / 2;
+    int bx = cx - body_w / 2;
+    int by = y - body_h / 2;
+
+    draw_wire(x1, y, bx, y);
+    draw_wire(bx + body_w, y, x2, y);
+    gfx_SetColor(COL_LIGHT);
+    gfx_FillRectangle(bx, by, body_w, body_h);
+    gfx_SetColor(COL_BLACK);
+    gfx_Rectangle(bx, by, body_w, body_h);
+    if ((int)gfx_GetStringWidth(label) <= body_w + 4) {
+        draw_text_in_rect(label, bx, by, body_w, body_h);
+    } else {
+        int lw = (int)gfx_GetStringWidth(label);
+        int lx = cx - lw / 2;
+        if (lx < 1) lx = 1;
+        if (lx + lw >= SCREEN_W) lx = SCREEN_W - lw - 1;
+        prn(label, lx, by - 11);
+    }
+}
+
+void draw_res_v(int x, int y1, int y2, const char *label) {
+    int body_w = 28;
+    int body_h = 32;
+    int cy = (y1 + y2) / 2;
+    int bx = x - body_w / 2;
+    int by = cy - body_h / 2;
+
+    draw_wire(x, y1, x, by);
+    draw_wire(x, by + body_h, x, y2);
+    gfx_SetColor(COL_LIGHT);
+    gfx_FillRectangle(bx, by, body_w, body_h);
+    gfx_SetColor(COL_BLACK);
+    gfx_Rectangle(bx, by, body_w, body_h);
+    if ((int)gfx_GetStringWidth(label) <= body_w + 4) {
+        draw_text_in_rect(label, bx, by, body_w, body_h);
+    } else {
+        int lw = (int)gfx_GetStringWidth(label);
+        int lx = x + body_w / 2 + 4;
+        if (lx + lw >= SCREEN_W) lx = x - body_w / 2 - 4 - lw;
+        if (lx < 1) lx = 1;
+        prn(label, lx, cy - 4);
+    }
+}
+
+void draw_cap_h(int x1, int y, int x2, const char *label) {
+    int cx = (x1 + x2) / 2;
+    int lw = (int)gfx_GetStringWidth(label);
+    int lx = cx - lw / 2;
+    draw_wire(x1, y, cx - 5, y);
+    draw_wire(cx + 5, y, x2, y);
+    gfx_SetColor(COL_GREEN);
+    gfx_VertLine(cx - 5, y - 14, 28);
+    gfx_VertLine(cx + 5, y - 14, 28);
+    gfx_SetTextFGColor(COL_BLACK);
+    if (lx < 0) lx = 0;
+    prn(label, lx, y - 28);
+}
+
+void draw_cap_v(int x, int y1, int y2, const char *label) {
+    int cy = (y1 + y2) / 2;
+    draw_wire(x, y1, x, cy - 5);
+    draw_wire(x, cy + 5, x, y2);
+    gfx_SetColor(COL_GREEN);
+    gfx_HorizLine(x - 14, cy - 5, 28);
+    gfx_HorizLine(x - 14, cy + 5, 28);
+    gfx_SetTextFGColor(COL_BLACK);
+    prn(label, x + 16, cy - 4);
+}
+
+void draw_ind_h(int x1, int y, int x2, const char *label) {
+    int cx = (x1 + x2) / 2;
+    int sx = cx - 22;
+    int lw = (int)gfx_GetStringWidth(label);
+    int lx = cx - lw / 2;
+    draw_wire(x1, y, sx, y);
+    gfx_SetColor(COL_GREEN);
+    gfx_Line(sx, y, sx + 8, y - 8);
+    gfx_Line(sx + 8, y - 8, sx + 16, y + 8);
+    gfx_Line(sx + 16, y + 8, sx + 24, y - 8);
+    gfx_Line(sx + 24, y - 8, sx + 32, y + 8);
+    gfx_Line(sx + 32, y + 8, sx + 44, y);
+    draw_wire(sx + 44, y, x2, y);
+    gfx_SetTextFGColor(COL_BLACK);
+    if (lx < 0) lx = 0;
+    prn(label, lx, y - 26);
+}
+
+void draw_ind_v(int x, int y1, int y2, const char *label) {
+    int cy = (y1 + y2) / 2;
+    int sy = cy - 22;
+    draw_wire(x, y1, x, sy);
+    gfx_SetColor(COL_GREEN);
+    gfx_Line(x, sy, x - 8, sy + 8);
+    gfx_Line(x - 8, sy + 8, x + 8, sy + 16);
+    gfx_Line(x + 8, sy + 16, x - 8, sy + 24);
+    gfx_Line(x - 8, sy + 24, x + 8, sy + 32);
+    gfx_Line(x + 8, sy + 32, x, sy + 44);
+    draw_wire(x, sy + 44, x, y2);
+    gfx_SetTextFGColor(COL_BLACK);
+    prn(label, x + 12, cy - 4);
+}
+
+void draw_voltage_source_pol(int x, int y1, int y2, const char *label, bool swapped) {
+    int cy = (y1 + y2) / 2;
+    int r = 14;
+    draw_wire(x, y1, x, cy - r);
+    draw_wire(x, cy + r, x, y2);
+    gfx_SetColor(COL_WHITE);
+    gfx_FillCircle(x, cy, r);
+    gfx_SetColor(COL_BLACK);
+    gfx_Circle(x, cy, r);
+    prn(swapped ? "-" : "+", x - 3, cy - 10);
+    prn(swapped ? "+" : "-", x - 3, cy + 4);
+    {
+        int lw = (int)gfx_GetStringWidth(label);
+        int lx = x + r + 4;
+        if (lx + lw >= SCREEN_W) lx = x - r - 4 - lw;
+        if (lx < 1) lx = 1;
+        prn(label, lx, cy + r + 4);
+    }
+}
+
+void draw_voltage_source(int x, int y1, int y2, const char *label) {
+    draw_voltage_source_pol(x, y1, y2, label, false);
+}
+
+void draw_voltage_source_h_pol(int x1, int y, int x2, const char *label, bool swapped) {
+    int cx = (x1 + x2) / 2;
+    int r = 14;
+    draw_wire(x1, y, cx - r, y);
+    draw_wire(cx + r, y, x2, y);
+    gfx_SetColor(COL_WHITE);
+    gfx_FillCircle(cx, y, r);
+    gfx_SetColor(COL_BLACK);
+    gfx_Circle(cx, y, r);
+    prn(swapped ? "+" : "-", cx - 9, y - 4);
+    prn(swapped ? "-" : "+", cx + 5, y - 4);
+    prn(label, cx - 10, y - 28);
+}
+
+void draw_voltage_source_h(int x1, int y, int x2, const char *label) {
+    draw_voltage_source_h_pol(x1, y, x2, label, false);
+}
+
+void draw_current_source_v_dir(int x, int y1, int y2,
+                               const char *label, bool upward) {
+    int cy = (y1 + y2) / 2;
+    int r = 14;
+    draw_wire(x, y1, x, cy - r);
+    draw_wire(x, cy + r, x, y2);
+    gfx_SetColor(COL_WHITE);
+    gfx_FillCircle(x, cy, r);
+    gfx_SetColor(COL_BLACK);
+    gfx_Circle(x, cy, r);
+    if (upward) {
+        gfx_Line(x, cy + 8, x, cy - 8);
+        gfx_Line(x, cy - 8, x - 4, cy - 2);
+        gfx_Line(x, cy - 8, x + 4, cy - 2);
+    } else {
+        gfx_Line(x, cy - 8, x, cy + 8);
+        gfx_Line(x, cy + 8, x - 4, cy + 2);
+        gfx_Line(x, cy + 8, x + 4, cy + 2);
+    }
+    {
+        int lw = (int)gfx_GetStringWidth(label);
+        int lx = x + r + 4;
+        if (lx + lw >= SCREEN_W) lx = x - r - 4 - lw;
+        if (lx < 1) lx = 1;
+        prn(label, lx, cy + r + 4);
+    }
+}
+
+void draw_current_source_h_dir(int x1, int y, int x2,
+                               const char *label, bool right) {
+    int cx = (x1 + x2) / 2;
+    int r = 14;
+    int ax1 = right ? cx - 8 : cx + 8;
+    int ax2 = right ? cx + 8 : cx - 8;
+    int ah = right ? -1 : 1;
+    draw_wire(x1, y, cx - r, y);
+    draw_wire(cx + r, y, x2, y);
+    gfx_SetColor(COL_WHITE);
+    gfx_FillCircle(cx, y, r);
+    gfx_SetColor(COL_BLACK);
+    gfx_Circle(cx, y, r);
+    gfx_Line(ax1, y, ax2, y);
+    gfx_Line(ax2, y, ax2 + ah * 6, y - 4);
+    gfx_Line(ax2, y, ax2 + ah * 6, y + 4);
+    prn(label, cx - 8, y - 27);
+}
+
+void draw_ground(int x, int y) {
+    gfx_SetColor(COL_BLACK);
+    gfx_VertLine(x, y, 7);
+    gfx_HorizLine(x - 12, y + 7, 24);
+    gfx_HorizLine(x - 8, y + 12, 16);
+    gfx_HorizLine(x - 4, y + 17, 8);
+}
+
+void draw_switch_open_h(int x1, int y, int x2, const char *label) {
+    int xm = (x1 + x2) / 2;
+    draw_wire(x1, y, xm - 12, y);
+    draw_wire(xm + 14, y, x2, y);
+    gfx_SetColor(COL_BLACK);
+    gfx_Circle(xm - 12, y, 2);
+    gfx_Circle(xm + 14, y, 2);
+    gfx_Line(xm - 10, y - 2, xm + 8, y - 16);
+    gfx_SetTextFGColor(COL_BLUE);
+    prn(label, xm - 18, y - 32);
+    gfx_SetTextFGColor(COL_BLACK);
+}
+
+void draw_opamp(int x, int y, bool noninv_input_top) {
+    gfx_SetColor(COL_BLACK);
+    gfx_Line(x, y, x, y + 58);
+    gfx_Line(x, y, x + 62, y + 29);
+    gfx_Line(x, y + 58, x + 62, y + 29);
+    prn(noninv_input_top ? "+" : "-", x + 8, y + 13);
+    prn(noninv_input_top ? "-" : "+", x + 8, y + 37);
+}
+
+void draw_dep_vsource_v_pol(int x, int y1, int y2, const char *label, bool swapped) {
+    int cy = (y1 + y2) / 2;
+    int r = 14;
+    draw_wire(x, y1, x, cy - r);
+    draw_wire(x, cy + r, x, y2);
+    gfx_SetColor(COL_WHITE);
+    gfx_FillCircle(x, cy, r);
+    gfx_SetColor(COL_BLACK);
+    gfx_Line(x, cy - r, x + r, cy);
+    gfx_Line(x + r, cy, x, cy + r);
+    gfx_Line(x, cy + r, x - r, cy);
+    gfx_Line(x - r, cy, x, cy - r);
+    prn(swapped ? "-" : "+", x - 3, cy - 10);
+    prn(swapped ? "+" : "-", x - 3, cy + 4);
+    {
+        int lw = (int)gfx_GetStringWidth(label);
+        int lx = x + r + 4;
+        if (lx + lw >= SCREEN_W) lx = x - r - 4 - lw;
+        if (lx < 1) lx = 1;
+        prn(label, lx, cy + r + 4);
+    }
+}
+
+void draw_dep_vsource_v(int x, int y1, int y2, const char *label) {
+    draw_dep_vsource_v_pol(x, y1, y2, label, false);
+}
+
+void draw_dep_vsource_h_pol(int x1, int y, int x2, const char *label, bool swapped) {
+    int cx = (x1 + x2) / 2;
+    int r = 14;
+    draw_wire(x1, y, cx - r, y);
+    draw_wire(cx + r, y, x2, y);
+    gfx_SetColor(COL_WHITE);
+    gfx_FillCircle(cx, y, r);
+    gfx_SetColor(COL_BLACK);
+    gfx_Line(cx, y - r, cx + r, y);
+    gfx_Line(cx + r, y, cx, y + r);
+    gfx_Line(cx, y + r, cx - r, y);
+    gfx_Line(cx - r, y, cx, y - r);
+    prn(swapped ? "+" : "-", cx - 9, y - 4);
+    prn(swapped ? "-" : "+", cx + 5, y - 4);
+    prn(label, cx - 10, y - 28);
+}
+
+void draw_dep_vsource_h(int x1, int y, int x2, const char *label) {
+    draw_dep_vsource_h_pol(x1, y, x2, label, false);
+}
+
+void draw_dep_isource_v(int x, int y1, int y2, const char *label, bool upward) {
+    int cy = (y1 + y2) / 2;
+    int r = 14;
+    draw_wire(x, y1, x, cy - r);
+    draw_wire(x, cy + r, x, y2);
+    gfx_SetColor(COL_WHITE);
+    gfx_FillCircle(x, cy, r);
+    gfx_SetColor(COL_BLACK);
+    gfx_Line(x, cy - r, x + r, cy);
+    gfx_Line(x + r, cy, x, cy + r);
+    gfx_Line(x, cy + r, x - r, cy);
+    gfx_Line(x - r, cy, x, cy - r);
+    if (upward) {
+        gfx_Line(x, cy + 7, x, cy - 7);
+        gfx_Line(x, cy - 7, x - 4, cy - 1);
+        gfx_Line(x, cy - 7, x + 4, cy - 1);
+    } else {
+        gfx_Line(x, cy - 7, x, cy + 7);
+        gfx_Line(x, cy + 7, x - 4, cy + 1);
+        gfx_Line(x, cy + 7, x + 4, cy + 1);
+    }
+    {
+        int lw = (int)gfx_GetStringWidth(label);
+        int lx = x + r + 4;
+        if (lx + lw >= SCREEN_W) lx = x - r - 4 - lw;
+        if (lx < 1) lx = 1;
+        prn(label, lx, cy + r + 4);
+    }
+}
+
+void ui_label(const char *text, int x, int y) {
+    gfx_SetTextFGColor(COL_BLACK);
+    prn(text, x, y);
+}
+
+void ui_arrow_h(int x1, int y, int x2, const char *label, bool right) {
+    int ah = right ? -1 : 1;
+    int head = right ? x2 : x1;
+    draw_wire(x1, y, x2, y);
+    gfx_SetColor(COL_BLACK);
+    gfx_Line(head, y, head + ah * 7, y - 4);
+    gfx_Line(head, y, head + ah * 7, y + 4);
+    ui_label(label, (x1 + x2) / 2 - 8, y - 16);
+}
+
+void ui_arrow_v(int x, int y1, int y2, const char *label, bool up) {
+    int ah = up ? 1 : -1;
+    int head = up ? y1 : y2;
+    draw_wire(x, y1, x, y2);
+    gfx_SetColor(COL_BLACK);
+    gfx_Line(x, head, x - 4, head + ah * 7);
+    gfx_Line(x, head, x + 4, head + ah * 7);
+    ui_label(label, x + 6, (y1 + y2) / 2 - 4);
+}
+
+void ui_pm(int x, int y1, int y2) {
+    ui_label("+", x, y1);
+    ui_label("-", x, y2);
+}
+
+void ui_vo(int x, int y_top, int y_bottom, const char *label) {
+    ui_pm(x, y_top, y_bottom);
+    ui_label(label, x - 8, (y_top + y_bottom) / 2 - 4);
+}

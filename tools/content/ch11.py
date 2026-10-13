@@ -1,0 +1,141 @@
+"""Capitulo 11 - Analise de potencia em CA."""
+
+SUBJECTS = ["Potencia AC", "Max Potencia AC"]
+
+CIRCUITS = {
+    "p11_8": [
+        ("isrc_v", 45, 80, 195, "6A", True),
+        ("wire", 45, 195, 280, 195),
+        ("wire", 45, 80, 100, 80),
+        ("imp_v", 100, 80, 195, "j10"),
+        ("imp_h", 100, 80, 205, "-j20"),
+        ("dis_v", 215, 80, 195, "0.5Io", True),
+        ("res_v", 275, 80, 195, "40"),
+        ("wire", 205, 80, 280, 80),
+        ("arr_h", 125, 62, 180, "Io", True),
+        ("gnd", 160, 195),
+    ],
+    "p11_15": [
+        ("vsrc_v", 42, 82, 195, "12V"),
+        ("res_h", 42, 82, 112, "1"),
+        ("wire", 42, 195, 270, 195),
+        ("imp_v", 112, 82, 195, "j1"),
+        ("imp_h", 112, 82, 215, "-j1"),
+        ("dis_v", 215, 82, 195, "2Vo", True),
+        ("term", 270, 82, "a"), ("term", 270, 195, "b"),
+        ("wire", 215, 82, 270, 82),
+        ("vo", 88, 105, 170, "Vo"),
+        ("lbl", "ZL", 278, 132),
+        ("gnd", 155, 195),
+    ],
+    "p11_38": [
+        ("vsrc_v", 35, 78, 195, "220V"),
+        ("wire", 35, 78, 295, 78), ("wire", 35, 195, 295, 195),
+        ("imp_v", 95, 78, 195, "124"),
+        ("imp_v", 135, 78, 195, "20-j25"),
+        ("imp_v", 280, 78, 195, "90+j80"),
+        ("gnd", 155, 195),
+    ],
+    "p11_41a": [
+        ("term", 35, 82, "a"), ("term", 35, 192, "b"),
+        ("res_h", 35, 82, 105, "4"),
+        ("imp_h", 105, 82, 205, "j5"),
+        ("wire", 205, 82, 275, 82), ("wire", 35, 192, 275, 192),
+        ("imp_v", 105, 82, 192, "-j2"),
+        ("imp_v", 265, 82, 192, "-j2"),
+    ],
+    "p11_41b": [
+        ("term", 35, 82, "a"), ("term", 35, 192, "b"),
+        ("wire", 35, 82, 82, 82), ("wire", 35, 192, 280, 192),
+        ("res_v", 70, 82, 192, "1"),
+        ("imp_h", 82, 82, 155, "-j1"),
+        ("imp_v", 155, 82, 192, "j2"),
+        ("res_h", 155, 82, 235, "4"),
+        ("wire", 235, 82, 280, 82),
+        ("imp_v", 270, 82, 192, "j1"),
+    ],
+}
+
+EXERCISES = [
+    {
+        "id": "p11_1", "title": "Problema 11.1",
+        "subject": "Potencia AC", "priority": 10,
+        "source": "Livro, Cap.11, Problema 11.1",
+        "statement": [
+            "v(t)=1670 cos(50t) V e",
+            "i(t)=-33 sen(50t-30 deg) A.",
+            "Determine p(t) e a potencia media.",
+        ],
+        "engine": {"profile": 4},
+        "params": [
+            ("Vm_V", 1670.0), ("V_deg", 0.0),
+            ("Im_A", 33.0), ("I_deg", 60.0), ("omega", 50.0),
+        ],
+        "expected": {"pavg_w": 13777.5, "pwave_w": 27555.0},
+    },
+    {
+        "id": "p11_8", "title": "Problema 11.8",
+        "subject": "Potencia AC", "priority": 11,
+        "source": "Livro, Cap.11, Problema 11.8",
+        "statement": ["Determine a potencia media absorvida", "pelo resistor de 40 ohm."],
+        "engine": {
+            "omega": 1.0, "target_op_index": 6,
+            "dep_resolve": {5: {"kind": "current", "branch_op_index": 4}},
+        },
+    },
+    {
+        "id": "p11_15", "title": "Problema 11.15",
+        "subject": "Max Potencia AC", "priority": 12,
+        "source": "Livro, Cap.11, Problema 11.15",
+        "statement": ["Determine ZL para potencia maxima e", "calcule a potencia maxima absorvida."],
+        "engine": {
+            "omega": 1.0, "port_labels": ["a", "b"], "peak": True,
+            "dep_resolve": {5: {"kind": "voltage", "node_op_index": 3}},
+        },
+        "expected": {"zl_re": 0.5, "zl_im": -0.5, "pmax_w": 90.0},
+    },
+    {
+        "id": "p11_38", "title": "Problema 11.38",
+        "subject": "Potencia AC", "priority": 13,
+        "source": "Livro, Cap.11, Problema 11.38",
+        "statement": ["Para 220 V RMS, determine P, Q e", "o fator de potencia do sistema."],
+        "engine": {"omega": 1.0, "target_op_index": 0, "flags2": 4},
+    },
+    {
+        "id": "p11_41a", "title": "Problema 11.41(a)",
+        "subject": "Potencia AC", "priority": 14,
+        "source": "Livro, Cap.11, Problema 11.41(a)",
+        "statement": ["Obtenha o fator de potencia e diga", "se e adiantado ou atrasado."],
+        "engine": {"omega": 1.0, "port_labels": ["a", "b"]},
+        "expected": {"pf": 0.5547, "sense": "adiantado"},
+    },
+    {
+        "id": "p11_41b", "title": "Problema 11.41(b)",
+        "subject": "Potencia AC", "priority": 15,
+        "source": "Livro, Cap.11, Problema 11.41(b)",
+        "statement": ["Obtenha o fator de potencia e diga", "se e adiantado ou atrasado."],
+        "engine": {"omega": 1.0, "port_labels": ["a", "b"]},
+        "expected": {"pf": 0.9304, "sense": "atrasado"},
+    },
+    {
+        "id": "p11_53", "title": "Problema 11.53",
+        "subject": "Potencia AC", "priority": 16,
+        "source": "Livro, Cap.11, Problema 11.53",
+        "statement": ["Some as tres cargas, determine I e", "o fator de potencia da associacao."],
+        "engine": {"profile": 2},
+        "params": [
+            ("SA_VA", 4000.0), ("fpA", 0.8), ("A_sinalQ", -1.0),
+            ("SB_VA", 2400.0), ("fpB", 0.6), ("B_sinalQ", 1.0),
+            ("PC_W", 1000.0), ("QC_VAR", 500.0),
+            ("V_V", 120.0), ("V_deg", 30.0),
+        ],
+    },
+    {
+        "id": "p11_69", "title": "Problema 11.69",
+        "subject": "Potencia AC", "priority": 17,
+        "source": "Livro, Cap.11, Problema 11.69",
+        "statement": ["Para Z=10+j12 ohm em 120 V RMS,", "ache FP, P e C para FP unitario."],
+        "engine": {"profile": 3},
+        "params": [("V_RMS", 120.0), ("f_Hz", 60.0), ("R_ohm", 10.0), ("X_ohm", 12.0)],
+    },
+]

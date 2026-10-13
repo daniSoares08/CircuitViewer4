@@ -1,0 +1,32 @@
+# CircuitViewer4 - github.com/daniSoares08
+# Open source (MIT License): free to use, copy, modify and redistribute.
+
+# .ai-tasks holds both throwaway run output (logs, previews, intake dumps,
+# extractor caches) and the hand-written design specs. Ignore the former,
+# track the latter - a fresh clone has to come with the specs.
+.ai-tasks/*
+!.ai-tasks/spec_*.md
+
+/LIVRO_ORIGINAL_PNG_300DPI
+/PROVAS
+LIVRO_ORIGINAL.pdf
+*.8xp
+*.8xv
+*.bin
+*.map
+/sourses/*
+/bin/*
+__pycache__
+/obj/*
+/tmp/
+.vscode
+
+# .codex carries the agent/skill definitions the workflow depends on - those
+# must be tracked. Anything else dropped in there (session state, caches) is
+# still ignored by the leading .codex/* rule.
+.codex/*
+!.codex/agents/
+!.codex/skills/
+!.codex/knowledge/
+!.codex/config.toml
+tests/*.exe

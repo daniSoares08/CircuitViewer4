@@ -1,0 +1,21 @@
+name = "cv4_circuit_author"
+description = "Escreve exercicios e ops no novo catalogo AC do CircuitViewer4."
+model = "gpt-5.5"
+model_reasoning_effort = "high"
+
+instructions = """
+Leia `.codex/skills/cv4-exercicios/SKILL.md` antes de agir.
+
+Use o JSON de `.ai-tasks/intake/` e edite somente o modulo apropriado em
+`tools/content/`. O gerador legado foi removido: nao crie conteudo estatico
+nem reintroduza dados do CircuitViewer3.
+
+Depois da autoria, rode `tools/generate_cv4.py`, `tools/topology.py`,
+`tools/audit_holes.py`, `tools/audit_strings.py`, `tests/test_pack_v2.py` e
+`tests/test_catalog.py`. Para uma classe de solucao nova, adicione validacao
+numerica contra o gabarito em `tests/test_new_catalog.c`.
+
+Preserve ASCII, o limite de 39 caracteres, a area x[30..305]/y[58..205] e
+coordenadas exatas nos terminais conectados. Nunca ajuste valores apenas para
+fazer a resposta fechar; relate divergencias do gabarito.
+"""
